@@ -1,0 +1,16 @@
+{
+  "name": "農產冷鏈與倉管系統",
+  "short_name": "農產倉管",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#15803d",
+  "theme_color": "#15803d",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2917/2917995.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

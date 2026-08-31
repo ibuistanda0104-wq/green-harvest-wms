@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>農產冷鏈與倉管系統</title>
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#15803d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="農產倉管">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2917/2917995.png">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <style>
+    body { -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+    .pt-safe { padding-top: env(safe-area-inset-top, 16px); }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased flex flex-col min-h-screen">
+  <div id="app" class="flex-1 flex flex-col max-w-md mx-auto w-full bg-slate-50 shadow-2xl relative">
+
+    <!-- 頂部 Header -->
+    <header class="bg-emerald-800 text-white pt-safe pb-3.5 px-4 shadow-md sticky top-0 z-30">
+      <div class="flex items-center justify-between mt-2">
+        <h1 class="text-lg font-bold tracking-wide flex items-center gap-1.5">
+          <span>🌱</span> 農產智慧倉管
+        </h1>
+        <button @click="loadCloudData(true)" class="bg-emerald-700 active:bg-emerald-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-500 flex items-center gap-1">
+          <span>🔄</span> 同步
+        </button>
+      </div>
+
+      <!-- 頂部 3 個小看板 -->
+      <div class="grid grid-cols-3 gap-2 mt-3">
+        <div class="bg-white/10 rounded-xl p-2 border border-white/20 text-center">
+          <div class="text-[10px] text-emerald-200">在庫總重</div>
+          <div class="text-sm font-bold text-white">{{ totalStockWeight.toFixed(1) }}</div>
+        </div>
+        <div class="bg-white/10 rounded-xl p-2 border border-white/20 text-center">
+          <div class="text-[10px] text-amber-200">⏳ 即期品</div>
+          <div class="text-sm font-bold text-amber-300">{{ nearExpiryCount }} 批</div>
+        </div>
+        <div class="bg-white/10 rounded-xl p-2 border border-white/20 text-center">
+          <div class="text-[10px] text-rose-200">⚠️ 逾期品</div>
+          <div class="text-sm font-bold text-rose-300">{{ expiredCount }} 批</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主內容區 -->
+    <main class="flex-1 overflow-y-auto px-4 py-4 pb-24 space-y-4">
+
+      <!-- ================= Tab 1: 採收進貨過磅 ================= -->
+      <div v-show="activeTab === 'inbound'" class="space-y-4">
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3.5">
+          <h2 class="text-base font-bold text-emerald-900 flex items-center gap-1.5">
+            <span>📝</span> 採收入庫與過磅
+          </h2>
+
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">選擇農產品</label>
+            <select v-model="inForm.produceName" @change="onProduceChange" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-base font-bold text-slate-800">
+              <option v-for="p in wmsData.ProduceList" :key="p.Name" :value="p.Name">{{ p.Name }} ({{ p.Unit }})</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs font-bold text-slate-500 mb-1 block">分級規格</label>
+              <select v-model="inForm.grade" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-sm font-semibold">
+                <option>特級 (大果)</option>
+                <option>優級 (中果)</option>
+                <option>良級</option>
+                <option>格外品 (加工)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-500 mb-1 block">存放溫層</label>
+              <select v-model="inForm.location" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-sm font-semibold">
+                <option>冷藏A區 (0-4°C)</option>
+                <option>冷藏B區 (0-4°C)</option>
+                <option>常溫通風庫</option>
+                <option>冷凍庫 (-18°C)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs font-bold text-slate-500 mb-1 block">過磅總重 (含籃)</label>
+              <input type="number" step="0.1" v-model.number="inForm.grossWeight" placeholder="0.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-lg font-bold text-slate-900">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-500 mb-1 block">去皮重 (籃重)</label>
+              <input type="number" step="0.1" v-model.number="inForm.tareWeight" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-lg font-bold text-slate-900">
+            </div>
+          </div>
+
+          <!-- 自動計算提示 -->
+          <div class="bg-emerald-50 rounded-xl p-3 border border-emerald-200 flex justify-between items-center">
+            <div>
+              <div class="text-[11px] text-emerald-700">實扣淨重</div>
+              <div class="text-lg font-bold text-emerald-800">{{ netWeight.toFixed(2) }} {{ currentUnit }}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] text-emerald-700">應付收購款</div>
+              <div class="text-lg font-bold text-amber-700">NT$ {{ (netWeight * inForm.unitPrice).toLocaleString() }}</div>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">供貨農友 / 產銷班</label>
+            <input type="text" v-model="inForm.supplierName" placeholder="請輸入農友姓名或產銷班" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm">
+          </div>
+
+          <!-- 手機相機拍照 -->
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">📷 到貨果況照片拍攝</label>
+            <input type="file" accept="image/*" capture="environment" @change="handlePhotoUpload" class="w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700">
+            <div v-if="inForm.imageBase64" class="mt-2 relative">
+              <img :src="inForm.imageBase64" class="w-full h-36 object-cover rounded-xl border border-slate-200">
+              <button @click="inForm.imageBase64 = ''" class="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-1 rounded-md">清除</button>
+            </div>
+          </div>
+
+          <button @click="submitInbound" class="w-full py-3.5 bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-base font-bold shadow-md transition">
+            💾 完成過磅並確認入庫 (同步雲端)
+          </button>
+        </div>
+      </div>
+
+      <!-- ================= Tab 2: 庫存鮮度與出貨 ================= -->
+      <div v-show="activeTab === 'inventory'" class="space-y-4">
+        <!-- 快速出貨區塊 -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <span>📦</span> 快速出貨作業
+          </h2>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs font-bold text-slate-500 mb-1 block">客戶名稱</label>
+              <input type="text" v-model="outForm.customer" placeholder="輸入客戶名稱" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-500 mb-1 block">出貨重量</label>
+              <input type="number" step="0.1" v-model.number="outForm.qty" placeholder="0.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold">
+            </div>
+          </div>
+          <button @click="submitOutbound" class="w-full py-2.5 bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-sm font-bold shadow">
+            📦 確認扣庫出貨 (先到期先出防呆)
+          </button>
+        </div>
+
+        <!-- 庫存清單 -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center px-1">
+            <h3 class="text-xs font-bold text-slate-500">在庫批次 (依到期日排序)</h3>
+            <span class="text-[11px] text-slate-400">點擊批次以選取</span>
+          </div>
+
+          <div v-for="b in activeBatches" :key="b.BatchId" @click="selectedBatchId = b.BatchId" :class="selectedBatchId === b.BatchId ? 'ring-2 ring-emerald-600 bg-emerald-50/40' : 'bg-white'" class="p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2 transition cursor-pointer">
+            <div class="flex justify-between items-center">
+              <div class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                <span>{{ b.ProduceName }}</span>
+                <span class="text-xs font-normal text-slate-500">({{ b.Grade }})</span>
+              </div>
+              <span class="text-xs px-2.5 py-0.5 rounded-full font-bold" :class="getStatusBadge(b.ExpireDate).badgeClass">
+                {{ getStatusBadge(b.ExpireDate).text }}
+              </span>
+            </div>
+
+            <div class="flex justify-between text-xs text-slate-600">
+              <span>現存量：<b class="text-emerald-700 text-sm">{{ Number(b.StockQty).toFixed(1) }}</b> {{ b.Unit }}</span>
+              <span>效期至：{{ b.ExpireDate?.substring(0, 10) }}</span>
+            </div>
+
+            <div class="text-[11px] text-slate-400 flex justify-between">
+              <span>批號: {{ b.BatchNumber }}</span>
+              <span>農友: {{ b.SupplierName }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= Tab 3: 出貨紀錄與回饋 ================= -->
+      <div v-show="activeTab === 'outbound'" class="space-y-3">
+        <h3 class="text-xs font-bold text-slate-500 px-1">近期出貨與售後滿意度</h3>
+        <div v-for="rec in wmsData.OutboundRecords" :key="rec.RecordId" class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <div class="font-bold text-slate-800 text-sm">{{ rec.CustomerName }}</div>
+            <div class="text-xs font-bold text-emerald-700">{{ rec.ProduceName }} {{ rec.OutQty }} {{ rec.Unit }}</div>
+          </div>
+          <div class="text-[11px] text-slate-400 flex justify-between">
+            <span>單號: {{ rec.OrderNumber }}</span>
+            <span>{{ rec.OutboundDate?.substring(0, 10) }}</span>
+          </div>
+
+          <!-- 滿意度與處理狀態 -->
+          <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+            <span class="font-bold" :class="rec.FeedbackRating?.includes('⭐⭐⭐⭐⭐') ? 'text-emerald-600' : 'text-slate-600'">
+              {{ rec.FeedbackRating || '待回訪' }}
+            </span>
+            <button @click="openFeedbackModal(rec)" class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg font-bold">
+              💬 填寫/修改回饋
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- 底部導航欄 -->
+    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-around py-2.5 pb-safe z-30">
+      <button @click="activeTab = 'inbound'" :class="activeTab === 'inbound' ? 'text-emerald-700 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1 flex-1">
+        <span class="text-lg">📥</span>
+        <span class="text-[11px]">採收進貨</span>
+      </button>
+      <button @click="activeTab = 'inventory'" :class="activeTab === 'inventory' ? 'text-emerald-700 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1 flex-1">
+        <span class="text-lg">📊</span>
+        <span class="text-[11px]">鮮度庫存</span>
+      </button>
+      <button @click="activeTab = 'outbound'" :class="activeTab === 'outbound' ? 'text-emerald-700 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1 flex-1">
+        <span class="text-lg">🚚</span>
+        <span class="text-[11px]">出貨回饋</span>
+      </button>
+    </nav>
+
+    <!-- 售後回饋彈窗 -->
+    <div v-if="fbModal.visible" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-0 sm:p-4">
+      <div class="bg-white w-full max-w-md rounded-t-3xl p-5 space-y-3.5">
+        <div class="flex justify-between items-center">
+          <h3 class="font-bold text-slate-800 text-base">💬 記錄客戶售後回饋</h3>
+          <button @click="fbModal.visible = false" class="text-slate-400 text-lg font-bold">✕</button>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-500 mb-1 block">滿意度評價</label>
+          <select v-model="fbModal.item.FeedbackRating" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold">
+            <option>⭐⭐⭐⭐⭐ 非常滿意 (超甜/好評回購)</option>
+            <option>⭐⭐⭐⭐ 滿意良好 (正常新鮮)</option>
+            <option>⭐⭐⭐ 普通一般 (無特別反饋)</option>
+            <option>⭐⭐ 輕微瑕疵 (少數壓傷/過熟)</option>
+            <option>⭐ 嚴重客訴 (果損嚴重/退換貨)</option>
+            <option>待回訪 (尚未收到反饋)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-500 mb-1 block">客訴原因分類</label>
+          <select v-model="fbModal.item.FeedbackIssue" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold">
+            <option>無 (正常良好/好評)</option>
+            <option>物流碰撞壓傷/果皮受損</option>
+            <option>果實過熟變軟/保鮮不足</option>
+            <option>甜度或口感不如預期</option>
+            <option>果實偏小/規格尺寸爭議</option>
+            <option>發霉/腐爛變質</option>
+            <option>其他售後問題</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-500 mb-1 block">售後備註說明</label>
+          <textarea v-model="fbModal.item.FeedbackNote" rows="3" placeholder="輸入客人回話與處理情形..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm"></textarea>
+        </div>
+
+        <button @click="saveFeedbackModal" class="w-full py-3 bg-emerald-700 text-white rounded-xl font-bold shadow">
+          💾 儲存並同步雲端
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const activeTab = ref('inbound');
+        const FIREBASE_URL = "https://agri-wms-sync-default-rtdb.firebaseio.com/data.json";
+
+        const defaultData = {
+          ProduceList: [
+            { Name: "紅肉李", Category: "水果類", Unit: "台斤", ShelfLifeDays: 7, DefaultTare: 1.5, DefaultUnitPrice: 60, Temp: 1 },
+            { Name: "牛番茄", Category: "果品類", Unit: "公斤", ShelfLifeDays: 10, DefaultTare: 1.2, DefaultUnitPrice: 85, Temp: 1 },
+            { Name: "地瓜 (台農57號)", Category: "根莖類", Unit: "台斤", ShelfLifeDays: 60, DefaultTare: 2.0, DefaultUnitPrice: 30, Temp: 0 }
+          ],
+          Batches: [],
+          OutboundRecords: []
+        };
+
+        const wmsData = ref(JSON.parse(localStorage.getItem('agri_wms_data')) || defaultData);
+
+        const inForm = ref({
+          produceName: "紅肉李",
+          grade: "特級 (大果)",
+          location: "冷藏A區 (0-4°C)",
+          grossWeight: null,
+          tareWeight: 1.5,
+          unitPrice: 60,
+          shelfLifeDays: 7,
+          supplierName: "順安有機農園",
+          imageBase64: ""
+        });
+
+        const selectedBatchId = ref("");
+        const outForm = ref({ customer: "全聯超市", qty: null });
+        const fbModal = ref({ visible: false, item: null });
+
+        const currentUnit = computed(() => {
+          const p = wmsData.value.ProduceList?.find(x => x.Name === inForm.value.produceName);
+          return p ? p.Unit : "台斤";
+        });
+
+        const netWeight = computed(() => Math.max(0, (inForm.value.grossWeight || 0) - (inForm.value.tareWeight || 0)));
+
+        const onProduceChange = () => {
+          const p = wmsData.value.ProduceList?.find(x => x.Name === inForm.value.produceName);
+          if (p) {
+            inForm.value.tareWeight = p.DefaultTare || 1.5;
+            inForm.value.unitPrice = p.DefaultUnitPrice || 50;
+            inForm.value.shelfLifeDays = p.ShelfLifeDays || 7;
+          }
+        };
+
+        const handlePhotoUpload = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            inForm.value.imageBase64 = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        };
+
+        const saveData = async () => {
+          localStorage.setItem('agri_wms_data', JSON.stringify(wmsData.value));
+          try {
+            await fetch(FIREBASE_URL, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(wmsData.value)
+            });
+          } catch (err) {
+            console.log('同步失敗，存於本機', err);
+          }
+        };
+
+        const loadCloudData = async (showNotice = false) => {
+          try {
+            const res = await fetch(FIREBASE_URL + '?t=' + new Date().getTime());
+            const cloudData = await res.json();
+            if (cloudData && (cloudData.Batches || cloudData.ProduceList)) {
+              wmsData.value = cloudData;
+              localStorage.setItem('agri_wms_data', JSON.stringify(cloudData));
+              if (showNotice) alert('☁️ 已從雲端同步最新農產庫存！');
+            }
+          } catch (err) {
+            console.log('無法連線雲端');
+          }
+        };
+
+        const submitInbound = async () => {
+          if (netWeight.value <= 0) {
+            alert('淨重必須大於 0！');
+            return;
+          }
+          const now = new Date();
+          const harvestDateStr = now.toISOString().substring(0, 10);
+          const expDate = new Date(now.getTime() + (inForm.value.shelfLifeDays || 7) * 86400000);
+          const batchNo = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${inForm.value.produceName}-${Math.floor(100 + Math.random() * 900)}`;
+
+          if (!wmsData.value.Batches) wmsData.value.Batches = [];
+          wmsData.value.Batches.push({
+            BatchId: crypto.randomUUID(),
+            BatchNumber: batchNo,
+            ProduceName: inForm.value.produceName,
+            Grade: inForm.value.grade,
+            Unit: currentUnit.value,
+            SupplierName: inForm.value.supplierName,
+            Location: inForm.value.location,
+            HarvestDate: harvestDateStr,
+            InboundDate: harvestDateStr,
+            ExpireDate: expDate.toISOString().substring(0, 10),
+            InitialQty: netWeight.value,
+            StockQty: netWeight.value,
+            UnitPrice: inForm.value.unitPrice,
+            ImagePath: inForm.value.imageBase64,
+            Note: ""
+          });
+
+          await saveData();
+          inForm.value.grossWeight = null;
+          inForm.value.imageBase64 = "";
+          alert(`✅ 入庫成功！批號：${batchNo}`);
+        };
+
+        const activeBatches = computed(() => {
+          return (wmsData.value.Batches || [])
+            .filter(b => Number(b.StockQty) > 0)
+            .sort((a, b) => new Date(a.ExpireDate) - new Date(b.ExpireDate));
+        });
+
+        const totalStockWeight = computed(() => {
+          return activeBatches.value.reduce((sum, b) => sum + Number(b.StockQty || 0), 0);
+        });
+
+        const nearExpiryCount = computed(() => {
+          const today = new Date();
+          return activeBatches.value.filter(b => {
+            const days = (new Date(b.ExpireDate) - today) / 86400000;
+            return days >= 0 && days <= 3;
+          }).length;
+        });
+
+        const expiredCount = computed(() => {
+          const today = new Date();
+          return activeBatches.value.filter(b => new Date(b.ExpireDate) < today).length;
+        });
+
+        const getStatusBadge = (expStr) => {
+          const days = Math.ceil((new Date(expStr) - new Date()) / 86400000);
+          if (days < 0) return { text: `🔴 逾期 ${Math.abs(days)} 天`, badgeClass: 'bg-rose-100 text-rose-700' };
+          if (days <= 3) return { text: `🟡 即期 (剩 ${days} 天)`, badgeClass: 'bg-amber-100 text-amber-700' };
+          return { text: `🟢 新鮮 (剩 ${days} 天)`, badgeClass: 'bg-emerald-100 text-emerald-700' };
+        };
+
+        const submitOutbound = async () => {
+          if (!selectedBatchId.value) {
+            alert('請在下方點選要出貨的批次！');
+            return;
+          }
+          if (!outForm.value.qty || outForm.value.qty <= 0) {
+            alert('請輸入大於 0 的出貨重量！');
+            return;
+          }
+          let target = wmsData.value.Batches.find(b => b.BatchId === selectedBatchId.value);
+          if (!target) return;
+
+          // 先到期防呆
+          const earlier = wmsData.value.Batches.find(b => b.ProduceName === target.ProduceName && Number(b.StockQty) > 0 && new Date(b.ExpireDate) < new Date(target.ExpireDate));
+          if (earlier) {
+            if (confirm(`⚠️ 發現有更早到期的批次（${earlier.BatchNumber}），要改由此即期批次優先出貨嗎？`)) {
+              target = earlier;
+            }
+          }
+
+          if (Number(target.StockQty) < Number(outForm.value.qty)) {
+            alert('該批次庫存不足！');
+            return;
+          }
+
+          target.StockQty = Number(target.StockQty) - Number(outForm.value.qty);
+          const orderNo = `OUT-${new Date().toISOString().substring(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random()*9000)}`;
+
+          if (!wmsData.value.OutboundRecords) wmsData.value.OutboundRecords = [];
+          wmsData.value.OutboundRecords.unshift({
+            RecordId: crypto.randomUUID(),
+            OrderNumber: orderNo,
+            CustomerName: outForm.value.customer,
+            BatchNumber: target.BatchNumber,
+            ProduceName: target.ProduceName,
+            Grade: target.Grade,
+            OutQty: Number(outForm.value.qty),
+            Unit: target.Unit,
+            OutboundDate: new Date().toISOString().substring(0,10),
+            ExpireDate: target.ExpireDate,
+            Note: "手機出庫",
+            FeedbackRating: "待回訪",
+            FeedbackIssue: "無 (正常)",
+            FeedbackStatus: "待追蹤",
+            FeedbackNote: ""
+          });
+
+          await saveData();
+          outForm.value.qty = null;
+          alert(`✅ 成功出庫！出貨單號：${orderNo}`);
+        };
+
+        const openFeedbackModal = (rec) => {
+          fbModal.value.item = rec;
+          fbModal.value.visible = true;
+        };
+
+        const saveFeedbackModal = async () => {
+          await saveData();
+          fbModal.value.visible = false;
+          alert('已儲存回饋！');
+        };
+
+        onMounted(async () => {
+          await loadCloudData();
+          onProduceChange();
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW reg error', err));
+          }
+        });
+
+        return {
+          activeTab, wmsData, inForm, currentUnit, netWeight, onProduceChange, handlePhotoUpload,
+          submitInbound, activeBatches, totalStockWeight, nearExpiryCount, expiredCount,
+          getStatusBadge, selectedBatchId, outForm, submitOutbound, loadCloudData,
+          fbModal, openFeedbackModal, saveFeedbackModal
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

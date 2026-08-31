@@ -1,0 +1,14 @@
+const CACHE_NAME = 'agri-wms-v1';
+
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(clients.claim());
+});
+
+self.addEventListener('fetch', (e) => {
+  // 保持即時連線抓取最新雲端庫存
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+});
