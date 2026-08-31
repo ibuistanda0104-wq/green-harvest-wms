@@ -93,11 +93,11 @@
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-xs font-bold text-slate-500 mb-1 block">過磅總重 (含籃)</label>
-              <input type="number" step="0.1" v-model.number="inForm.grossWeight" placeholder="0.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-lg font-bold text-slate-900">
+              <input type="number" step="0.1" v-model.number="inForm.grossWeight" placeholder="請輸入過磅總重" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-xs placeholder:font-normal">
             </div>
             <div>
               <label class="text-xs font-bold text-slate-500 mb-1 block">去皮重 (籃重)</label>
-              <input type="number" step="0.1" v-model.number="inForm.tareWeight" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-lg font-bold text-slate-900">
+              <input type="number" step="0.1" v-model.number="inForm.tareWeight" placeholder="預設籃重" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-xs placeholder:font-normal">
             </div>
           </div>
 
@@ -114,16 +114,22 @@
 
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1 block">供貨農友 / 產銷班</label>
-            <input type="text" v-model="inForm.supplierName" placeholder="請輸入農友姓名或產銷班" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm">
+            <input type="text" v-model="inForm.supplierName" placeholder="請輸入供貨農友姓名或產銷班（例如：王大明 / 順安有機班）" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400">
           </div>
 
-          <!-- 拍照存證 -->
           <div>
-            <label class="text-xs font-bold text-slate-500 mb-1 block">📷 到貨果況照片拍攝</label>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">進貨備註說明</label>
+            <input type="text" v-model="inForm.note" placeholder="請輸入進貨備註說明（例如：雨後採收、外觀良好）" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400">
+          </div>
+
+          <!-- 拍照存證 (點擊可放大預覽) -->
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">📷 到貨果況照片拍攝 (點縮圖可放大)</label>
             <input type="file" accept="image/*" capture="environment" @change="handlePhotoUpload" class="w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700">
             <div v-if="inForm.imageBase64" class="mt-2 relative">
-              <img :src="inForm.imageBase64" class="w-full h-40 object-cover rounded-xl border border-slate-200 shadow-inner">
-              <button @click="inForm.imageBase64 = ''" class="absolute top-1 right-1 bg-black/70 text-white text-xs px-2 py-1 rounded-md">清除</button>
+              <img :src="inForm.imageBase64" @click="zoomImage(inForm.imageBase64)" class="w-full h-40 object-cover rounded-xl border border-slate-200 shadow-inner cursor-pointer">
+              <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full pointer-events-none">🔍 點擊放大</div>
+              <button @click="inForm.imageBase64 = ''" class="absolute top-2 right-2 bg-rose-600 text-white text-xs px-2.5 py-1 rounded-md shadow">清除照片</button>
             </div>
           </div>
 
@@ -133,7 +139,7 @@
         </div>
       </div>
 
-      <!-- ================= Tab 2: 庫存鮮度與出貨 (照片縮圖＋修改/刪除) ================= -->
+      <!-- ================= Tab 2: 庫存鮮度與出貨 ================= -->
       <div v-show="activeTab === 'inventory'" class="space-y-4">
         <!-- 快速出貨區塊 -->
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
@@ -143,11 +149,11 @@
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-xs font-bold text-slate-500 mb-1 block">客戶名稱</label>
-              <input type="text" v-model="outForm.customer" placeholder="輸入客戶名稱" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium">
+              <input type="text" v-model="outForm.customer" placeholder="例如：全聯超市 / 陳先生" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium placeholder:text-slate-400 placeholder:text-xs">
             </div>
             <div>
               <label class="text-xs font-bold text-slate-500 mb-1 block">出貨重量</label>
-              <input type="number" step="0.1" v-model.number="outForm.qty" placeholder="0.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold">
+              <input type="number" step="0.1" v-model.number="outForm.qty" placeholder="請輸入出貨重量" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold placeholder:text-slate-400 placeholder:text-xs placeholder:font-normal">
             </div>
           </div>
           <button @click="submitOutbound" class="w-full py-2.5 bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-sm font-bold shadow">
@@ -155,18 +161,21 @@
           </button>
         </div>
 
-        <!-- 庫存清單 (含照片與按鈕) -->
+        <!-- 庫存清單 (含照片點擊放大) -->
         <div class="space-y-3">
           <div class="flex justify-between items-center px-1">
-            <h3 class="text-xs font-bold text-slate-500">在庫批次 (點選卡片出貨)</h3>
+            <h3 class="text-xs font-bold text-slate-500">在庫批次 (點選卡片出貨 ｜ 點照片放大)</h3>
           </div>
 
           <div v-for="b in activeBatches" :key="b.BatchId" @click="selectedBatchId = b.BatchId" :class="selectedBatchId === b.BatchId ? 'ring-2 ring-emerald-600 bg-emerald-50/50' : 'bg-white'" class="p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2.5 transition">
             
             <div class="flex gap-3 items-center">
-              <!-- 照片縮圖展示 -->
-              <div v-if="b.ImagePath" class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200 relative">
+              <!-- 照片縮圖 (點擊直接放大) -->
+              <div v-if="b.ImagePath" @click.stop="zoomImage(b.ImagePath)" class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200 relative cursor-pointer active:scale-95 transition">
                 <img :src="b.ImagePath" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/10 flex items-end justify-end p-0.5">
+                  <span class="text-[9px] bg-black/60 text-white px-1 rounded">🔍</span>
+                </div>
               </div>
               <div v-else class="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 border border-slate-200 flex items-center justify-center text-slate-300 text-xl">
                 📷
@@ -252,6 +261,14 @@
       </button>
     </nav>
 
+    <!-- 🔍 全螢幕照片放大彈窗 (Photo Lightbox Modal) -->
+    <div v-if="zoomedPhotoUrl" @click="zoomedPhotoUrl = ''" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm cursor-pointer">
+      <div class="relative max-w-full max-h-full flex flex-col items-center">
+        <img :src="zoomedPhotoUrl" class="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl">
+        <p class="text-white/80 text-xs mt-3 bg-black/50 px-4 py-1.5 rounded-full">點擊任意處關閉照片 ✕</p>
+      </div>
+    </div>
+
     <!-- 批次修改彈窗 -->
     <div v-if="editBatchModal.visible" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-0 sm:p-4">
       <div class="bg-white w-full max-w-md rounded-t-3xl p-5 space-y-3.5 max-h-[85vh] overflow-y-auto">
@@ -262,7 +279,7 @@
 
         <div>
           <label class="text-xs font-bold text-slate-500 mb-1 block">現存重量 ({{ editBatchModal.item.Unit }})</label>
-          <input type="number" step="0.1" v-model.number="editBatchModal.item.StockQty" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-base font-bold text-emerald-800">
+          <input type="number" step="0.1" v-model.number="editBatchModal.item.StockQty" placeholder="請輸入現存重量" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-base font-bold text-emerald-800 placeholder:text-slate-400">
         </div>
 
         <div class="grid grid-cols-2 gap-2">
@@ -289,7 +306,7 @@
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1 block">收購單價 (元)</label>
-            <input type="number" step="0.1" v-model.number="editBatchModal.item.UnitPrice" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium">
+            <input type="number" step="0.1" v-model.number="editBatchModal.item.UnitPrice" placeholder="請輸入單價" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium placeholder:text-slate-400">
           </div>
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1 block">有效期限</label>
@@ -299,12 +316,12 @@
 
         <div>
           <label class="text-xs font-bold text-slate-500 mb-1 block">供貨農友 / 產銷班</label>
-          <input type="text" v-model="editBatchModal.item.SupplierName" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm">
+          <input type="text" v-model="editBatchModal.item.SupplierName" placeholder="請輸入供貨農友姓名或產銷班" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400">
         </div>
 
         <div>
           <label class="text-xs font-bold text-slate-500 mb-1 block">備註說明</label>
-          <input type="text" v-model="editBatchModal.item.Note" placeholder="選填備註..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm">
+          <input type="text" v-model="editBatchModal.item.Note" placeholder="請輸入備註說明（選填）" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400">
         </div>
 
         <button @click="saveEditBatch" class="w-full py-3 bg-emerald-700 text-white rounded-xl font-bold shadow">
@@ -348,7 +365,7 @@
 
         <div>
           <label class="text-xs font-bold text-slate-500 mb-1 block">售後備註說明</label>
-          <textarea v-model="fbModal.item.FeedbackNote" rows="3" placeholder="輸入客人回話與處理情形..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm"></textarea>
+          <textarea v-model="fbModal.item.FeedbackNote" rows="3" placeholder="請輸入客人回話與處理情形（例如：客人稱讚很甜；或收到有2顆壓傷已約定補寄）..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm placeholder:text-slate-400"></textarea>
         </div>
 
         <button @click="saveFeedbackModal" class="w-full py-3 bg-emerald-700 text-white rounded-xl font-bold shadow">
@@ -387,14 +404,16 @@
           tareWeight: 1.5,
           unitPrice: 60,
           shelfLifeDays: 7,
-          supplierName: "順安有機農園",
+          supplierName: "",
+          note: "",
           imageBase64: ""
         });
 
         const selectedBatchId = ref("");
-        const outForm = ref({ customer: "全聯超市", qty: null });
+        const outForm = ref({ customer: "", qty: null });
         const fbModal = ref({ visible: false, item: null });
         const editBatchModal = ref({ visible: false, item: null });
+        const zoomedPhotoUrl = ref("");
 
         const currentUnit = computed(() => {
           const p = wmsData.value.ProduceList?.find(x => x.Name === inForm.value.produceName);
@@ -412,14 +431,38 @@
           }
         };
 
+        // 手機拍照並自動壓縮成輕量圖片（防卡頓與高速同步）
         const handlePhotoUpload = (e) => {
           const file = e.target.files[0];
           if (!file) return;
+
           const reader = new FileReader();
           reader.onload = (event) => {
-            inForm.value.imageBase64 = event.target.result;
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 800;
+              let width = img.width;
+              let height = img.height;
+
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              inForm.value.imageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            };
+            img.src = event.target.result;
           };
           reader.readAsDataURL(file);
+        };
+
+        const zoomImage = (url) => {
+          if (url) zoomedPhotoUrl.value = url;
         };
 
         const saveData = async () => {
@@ -466,7 +509,7 @@
             ProduceName: inForm.value.produceName,
             Grade: inForm.value.grade,
             Unit: currentUnit.value,
-            SupplierName: inForm.value.supplierName,
+            SupplierName: inForm.value.supplierName || '自家果園',
             Location: inForm.value.location,
             HarvestDate: harvestDateStr,
             InboundDate: harvestDateStr,
@@ -475,11 +518,12 @@
             StockQty: netWeight.value,
             UnitPrice: inForm.value.unitPrice,
             ImagePath: inForm.value.imageBase64,
-            Note: ""
+            Note: inForm.value.note
           });
 
           await saveData();
           inForm.value.grossWeight = null;
+          inForm.value.note = "";
           inForm.value.imageBase64 = "";
           alert(`✅ 入庫成功！批號：${batchNo}`);
         };
@@ -571,7 +615,7 @@
           wmsData.value.OutboundRecords.unshift({
             RecordId: crypto.randomUUID(),
             OrderNumber: orderNo,
-            CustomerName: outForm.value.customer,
+            CustomerName: outForm.value.customer || '未具名客戶',
             BatchNumber: target.BatchNumber,
             ProduceName: target.ProduceName,
             Grade: target.Grade,
@@ -628,7 +672,8 @@
           submitInbound, activeBatches, totalStockWeight, nearExpiryCount, expiredCount,
           getStatusBadge, selectedBatchId, outForm, submitOutbound, loadCloudData,
           editBatchModal, openEditBatchModal, saveEditBatch, deleteBatch,
-          deleteOutbound, fbModal, openFeedbackModal, saveFeedbackModal
+          deleteOutbound, fbModal, openFeedbackModal, saveFeedbackModal,
+          zoomedPhotoUrl, zoomImage
         };
       }
     }).mount('#app');
