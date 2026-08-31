@@ -31,7 +31,7 @@
           <span>🌱</span> 農產智慧倉管
         </h1>
         <button @click="loadCloudData(true)" class="bg-emerald-700 active:bg-emerald-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-500 flex items-center gap-1">
-          <span>🔄</span> 同步
+          <span>🔄</span> 雲端同步
         </button>
       </div>
 
@@ -42,11 +42,11 @@
           <div class="text-sm font-bold text-white">{{ totalStockWeight.toFixed(1) }}</div>
         </div>
         <div class="bg-white/10 rounded-xl p-2 border border-white/20 text-center">
-          <div class="text-[10px] text-amber-200">⏳ 即期品</div>
+          <div class="text-[10px] text-amber-200">⏳ 即期警戒</div>
           <div class="text-sm font-bold text-amber-300">{{ nearExpiryCount }} 批</div>
         </div>
         <div class="bg-white/10 rounded-xl p-2 border border-white/20 text-center">
-          <div class="text-[10px] text-rose-200">⚠️ 逾期品</div>
+          <div class="text-[10px] text-rose-200">⚠️ 逾期品項</div>
           <div class="text-sm font-bold text-rose-300">{{ expiredCount }} 批</div>
         </div>
       </div>
@@ -117,12 +117,13 @@
             <input type="text" v-model="inForm.supplierName" placeholder="請輸入農友姓名或產銷班" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm">
           </div>
 
+          <!-- 拍照存證 -->
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1 block">📷 到貨果況照片拍攝</label>
             <input type="file" accept="image/*" capture="environment" @change="handlePhotoUpload" class="w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700">
             <div v-if="inForm.imageBase64" class="mt-2 relative">
-              <img :src="inForm.imageBase64" class="w-full h-36 object-cover rounded-xl border border-slate-200">
-              <button @click="inForm.imageBase64 = ''" class="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-1 rounded-md">清除</button>
+              <img :src="inForm.imageBase64" class="w-full h-40 object-cover rounded-xl border border-slate-200 shadow-inner">
+              <button @click="inForm.imageBase64 = ''" class="absolute top-1 right-1 bg-black/70 text-white text-xs px-2 py-1 rounded-md">清除</button>
             </div>
           </div>
 
@@ -132,7 +133,7 @@
         </div>
       </div>
 
-      <!-- ================= Tab 2: 庫存鮮度與出貨 (含修改/刪除) ================= -->
+      <!-- ================= Tab 2: 庫存鮮度與出貨 (照片縮圖＋修改/刪除) ================= -->
       <div v-show="activeTab === 'inventory'" class="space-y-4">
         <!-- 快速出貨區塊 -->
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
@@ -154,39 +155,49 @@
           </button>
         </div>
 
-        <!-- 庫存清單 -->
-        <div class="space-y-2.5">
+        <!-- 庫存清單 (含照片與按鈕) -->
+        <div class="space-y-3">
           <div class="flex justify-between items-center px-1">
-            <h3 class="text-xs font-bold text-slate-500">在庫批次 (點選卡片選取出貨)</h3>
+            <h3 class="text-xs font-bold text-slate-500">在庫批次 (點選卡片出貨)</h3>
           </div>
 
           <div v-for="b in activeBatches" :key="b.BatchId" @click="selectedBatchId = b.BatchId" :class="selectedBatchId === b.BatchId ? 'ring-2 ring-emerald-600 bg-emerald-50/50' : 'bg-white'" class="p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2.5 transition">
-            <div class="flex justify-between items-center">
-              <div class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                <span>{{ b.ProduceName }}</span>
-                <span class="text-xs font-normal text-slate-500">({{ b.Grade }})</span>
+            
+            <div class="flex gap-3 items-center">
+              <!-- 照片縮圖展示 -->
+              <div v-if="b.ImagePath" class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200 relative">
+                <img :src="b.ImagePath" class="w-full h-full object-cover">
               </div>
-              <span class="text-xs px-2.5 py-0.5 rounded-full font-bold" :class="getStatusBadge(b.ExpireDate).badgeClass">
-                {{ getStatusBadge(b.ExpireDate).text }}
-              </span>
+              <div v-else class="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 border border-slate-200 flex items-center justify-center text-slate-300 text-xl">
+                📷
+              </div>
+
+              <!-- 品名與現存量 -->
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-start">
+                  <div class="font-bold text-slate-800 text-base truncate">{{ b.ProduceName }} <span class="text-xs text-slate-500 font-normal">({{ b.Grade }})</span></div>
+                  <span class="text-[11px] px-2 py-0.5 rounded-full font-bold ml-1 flex-shrink-0" :class="getStatusBadge(b.ExpireDate).badgeClass">
+                    {{ getStatusBadge(b.ExpireDate).text }}
+                  </span>
+                </div>
+                <div class="text-xs text-slate-600 mt-1">
+                  現存量：<b class="text-emerald-700 text-sm">{{ Number(b.StockQty).toFixed(1) }}</b> {{ b.Unit }}
+                  <span class="text-slate-400 mx-1">|</span> {{ b.Location }}
+                </div>
+              </div>
             </div>
 
-            <div class="flex justify-between text-xs text-slate-600">
-              <span>現存量：<b class="text-emerald-700 text-base">{{ Number(b.StockQty).toFixed(1) }}</b> {{ b.Unit }}</span>
-              <span>庫位：<b>{{ b.Location }}</b></span>
-            </div>
-
-            <div class="text-[11px] text-slate-400 flex justify-between">
+            <div class="text-[11px] text-slate-400 flex justify-between pt-1">
               <span>批號: {{ b.BatchNumber }}</span>
               <span>農友: {{ b.SupplierName || '未填' }}</span>
             </div>
 
-            <!-- 手機端 修改與刪除 按鈕列 -->
+            <!-- 修改與刪除按鈕 -->
             <div class="pt-2 border-t border-slate-100 flex justify-end gap-2">
-              <button @click.stop="openEditBatchModal(b)" class="text-xs bg-amber-50 active:bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-lg font-bold flex items-center gap-1">
+              <button @click.stop="openEditBatchModal(b)" class="text-xs bg-amber-50 active:bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1">
                 <span>✏️</span> 修改
               </button>
-              <button @click.stop="deleteBatch(b)" class="text-xs bg-rose-50 active:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1 rounded-lg font-bold flex items-center gap-1">
+              <button @click.stop="deleteBatch(b)" class="text-xs bg-rose-50 active:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1">
                 <span>🗑️</span> 刪除
               </button>
             </div>
@@ -194,7 +205,7 @@
         </div>
       </div>
 
-      <!-- ================= Tab 3: 出貨紀錄與回饋 (含撤銷) ================= -->
+      <!-- ================= Tab 3: 出貨紀錄與售後回饋 ================= -->
       <div v-show="activeTab === 'outbound'" class="space-y-3">
         <h3 class="text-xs font-bold text-slate-500 px-1">近期出貨與售後滿意度</h3>
         <div v-for="rec in wmsData.OutboundRecords" :key="rec.RecordId" class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2">
@@ -207,7 +218,6 @@
             <span>{{ rec.OutboundDate?.substring(0, 10) }}</span>
           </div>
 
-          <!-- 滿意度與操作按鈕 -->
           <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
             <span class="font-bold" :class="rec.FeedbackRating?.includes('⭐⭐⭐⭐⭐') ? 'text-emerald-600' : 'text-slate-600'">
               {{ rec.FeedbackRating || '待回訪' }}
@@ -242,11 +252,11 @@
       </button>
     </nav>
 
-    <!-- 批次修改彈窗 (Edit Batch Modal) -->
+    <!-- 批次修改彈窗 -->
     <div v-if="editBatchModal.visible" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-0 sm:p-4">
       <div class="bg-white w-full max-w-md rounded-t-3xl p-5 space-y-3.5 max-h-[85vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-2">
-          <h3 class="font-bold text-slate-800 text-base">✏️ 修改批次：{{ editBatchModal.item.BatchNumber }}</h3>
+          <h3 class="font-bold text-slate-800 text-base">✏️ 修改批次資料</h3>
           <button @click="editBatchModal.visible = false" class="text-slate-400 text-lg font-bold">✕</button>
         </div>
 
@@ -303,7 +313,7 @@
       </div>
     </div>
 
-    <!-- 售後回饋彈窗 (Feedback Modal) -->
+    <!-- 售後回饋彈窗 -->
     <div v-if="fbModal.visible" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-0 sm:p-4">
       <div class="bg-white w-full max-w-md rounded-t-3xl p-5 space-y-3.5">
         <div class="flex justify-between items-center">
@@ -504,7 +514,6 @@
           return { text: `🟢 新鮮 (剩 ${days} 天)`, badgeClass: 'bg-emerald-100 text-emerald-700' };
         };
 
-        // 批次修改與刪除
         const openEditBatchModal = (batch) => {
           editBatchModal.value.item = JSON.parse(JSON.stringify(batch));
           if (editBatchModal.value.item.ExpireDate) {
@@ -531,7 +540,6 @@
           }
         };
 
-        // 出貨與撤銷
         const submitOutbound = async () => {
           if (!selectedBatchId.value) {
             alert('請在下方點選要出貨的批次！');
