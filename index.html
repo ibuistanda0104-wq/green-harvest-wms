@@ -101,7 +101,6 @@
             </div>
           </div>
 
-          <!-- 自動計算提示 -->
           <div class="bg-emerald-50 rounded-xl p-3 border border-emerald-200 flex justify-between items-center">
             <div>
               <div class="text-[11px] text-emerald-700">實扣淨重</div>
@@ -118,7 +117,6 @@
             <input type="text" v-model="inForm.supplierName" placeholder="請輸入農友姓名或產銷班" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm">
           </div>
 
-          <!-- 手機相機拍照 -->
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1 block">📷 到貨果況照片拍攝</label>
             <input type="file" accept="image/*" capture="environment" @change="handlePhotoUpload" class="w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700">
@@ -134,7 +132,7 @@
         </div>
       </div>
 
-      <!-- ================= Tab 2: 庫存鮮度與出貨 ================= -->
+      <!-- ================= Tab 2: 庫存鮮度與出貨 (含修改/刪除) ================= -->
       <div v-show="activeTab === 'inventory'" class="space-y-4">
         <!-- 快速出貨區塊 -->
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
@@ -157,13 +155,12 @@
         </div>
 
         <!-- 庫存清單 -->
-        <div class="space-y-2">
+        <div class="space-y-2.5">
           <div class="flex justify-between items-center px-1">
-            <h3 class="text-xs font-bold text-slate-500">在庫批次 (依到期日排序)</h3>
-            <span class="text-[11px] text-slate-400">點擊批次以選取</span>
+            <h3 class="text-xs font-bold text-slate-500">在庫批次 (點選卡片選取出貨)</h3>
           </div>
 
-          <div v-for="b in activeBatches" :key="b.BatchId" @click="selectedBatchId = b.BatchId" :class="selectedBatchId === b.BatchId ? 'ring-2 ring-emerald-600 bg-emerald-50/40' : 'bg-white'" class="p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2 transition cursor-pointer">
+          <div v-for="b in activeBatches" :key="b.BatchId" @click="selectedBatchId = b.BatchId" :class="selectedBatchId === b.BatchId ? 'ring-2 ring-emerald-600 bg-emerald-50/50' : 'bg-white'" class="p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2.5 transition">
             <div class="flex justify-between items-center">
               <div class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
                 <span>{{ b.ProduceName }}</span>
@@ -175,19 +172,29 @@
             </div>
 
             <div class="flex justify-between text-xs text-slate-600">
-              <span>現存量：<b class="text-emerald-700 text-sm">{{ Number(b.StockQty).toFixed(1) }}</b> {{ b.Unit }}</span>
-              <span>效期至：{{ b.ExpireDate?.substring(0, 10) }}</span>
+              <span>現存量：<b class="text-emerald-700 text-base">{{ Number(b.StockQty).toFixed(1) }}</b> {{ b.Unit }}</span>
+              <span>庫位：<b>{{ b.Location }}</b></span>
             </div>
 
             <div class="text-[11px] text-slate-400 flex justify-between">
               <span>批號: {{ b.BatchNumber }}</span>
-              <span>農友: {{ b.SupplierName }}</span>
+              <span>農友: {{ b.SupplierName || '未填' }}</span>
+            </div>
+
+            <!-- 手機端 修改與刪除 按鈕列 -->
+            <div class="pt-2 border-t border-slate-100 flex justify-end gap-2">
+              <button @click.stop="openEditBatchModal(b)" class="text-xs bg-amber-50 active:bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-lg font-bold flex items-center gap-1">
+                <span>✏️</span> 修改
+              </button>
+              <button @click.stop="deleteBatch(b)" class="text-xs bg-rose-50 active:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1 rounded-lg font-bold flex items-center gap-1">
+                <span>🗑️</span> 刪除
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ================= Tab 3: 出貨紀錄與回饋 ================= -->
+      <!-- ================= Tab 3: 出貨紀錄與回饋 (含撤銷) ================= -->
       <div v-show="activeTab === 'outbound'" class="space-y-3">
         <h3 class="text-xs font-bold text-slate-500 px-1">近期出貨與售後滿意度</h3>
         <div v-for="rec in wmsData.OutboundRecords" :key="rec.RecordId" class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2">
@@ -200,14 +207,19 @@
             <span>{{ rec.OutboundDate?.substring(0, 10) }}</span>
           </div>
 
-          <!-- 滿意度與處理狀態 -->
+          <!-- 滿意度與操作按鈕 -->
           <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
             <span class="font-bold" :class="rec.FeedbackRating?.includes('⭐⭐⭐⭐⭐') ? 'text-emerald-600' : 'text-slate-600'">
               {{ rec.FeedbackRating || '待回訪' }}
             </span>
-            <button @click="openFeedbackModal(rec)" class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg font-bold">
-              💬 填寫/修改回饋
-            </button>
+            <div class="flex gap-2">
+              <button @click="openFeedbackModal(rec)" class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg font-bold">
+                💬 售後回饋
+              </button>
+              <button @click="deleteOutbound(rec)" class="text-xs bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-1 rounded-lg font-bold">
+                🗑️ 撤銷
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -230,7 +242,68 @@
       </button>
     </nav>
 
-    <!-- 售後回饋彈窗 -->
+    <!-- 批次修改彈窗 (Edit Batch Modal) -->
+    <div v-if="editBatchModal.visible" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-0 sm:p-4">
+      <div class="bg-white w-full max-w-md rounded-t-3xl p-5 space-y-3.5 max-h-[85vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h3 class="font-bold text-slate-800 text-base">✏️ 修改批次：{{ editBatchModal.item.BatchNumber }}</h3>
+          <button @click="editBatchModal.visible = false" class="text-slate-400 text-lg font-bold">✕</button>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-500 mb-1 block">現存重量 ({{ editBatchModal.item.Unit }})</label>
+          <input type="number" step="0.1" v-model.number="editBatchModal.item.StockQty" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-base font-bold text-emerald-800">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">分級規格</label>
+            <select v-model="editBatchModal.item.Grade" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-sm font-semibold">
+              <option>特級 (大果)</option>
+              <option>優級 (中果)</option>
+              <option>良級</option>
+              <option>格外品 (加工)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">存放溫層</label>
+            <select v-model="editBatchModal.item.Location" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-sm font-semibold">
+              <option>冷藏A區 (0-4°C)</option>
+              <option>冷藏B區 (0-4°C)</option>
+              <option>常溫通風庫</option>
+              <option>冷凍庫 (-18°C)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">收購單價 (元)</label>
+            <input type="number" step="0.1" v-model.number="editBatchModal.item.UnitPrice" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium">
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1 block">有效期限</label>
+            <input type="date" v-model="editBatchModal.item.ExpireDate" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-sm font-medium">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-500 mb-1 block">供貨農友 / 產銷班</label>
+          <input type="text" v-model="editBatchModal.item.SupplierName" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm">
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-500 mb-1 block">備註說明</label>
+          <input type="text" v-model="editBatchModal.item.Note" placeholder="選填備註..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm">
+        </div>
+
+        <button @click="saveEditBatch" class="w-full py-3 bg-emerald-700 text-white rounded-xl font-bold shadow">
+          💾 儲存修改並同步雲端
+        </button>
+      </div>
+    </div>
+
+    <!-- 售後回饋彈窗 (Feedback Modal) -->
     <div v-if="fbModal.visible" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-0 sm:p-4">
       <div class="bg-white w-full max-w-md rounded-t-3xl p-5 space-y-3.5">
         <div class="flex justify-between items-center">
@@ -311,6 +384,7 @@
         const selectedBatchId = ref("");
         const outForm = ref({ customer: "全聯超市", qty: null });
         const fbModal = ref({ visible: false, item: null });
+        const editBatchModal = ref({ visible: false, item: null });
 
         const currentUnit = computed(() => {
           const p = wmsData.value.ProduceList?.find(x => x.Name === inForm.value.produceName);
@@ -430,6 +504,34 @@
           return { text: `🟢 新鮮 (剩 ${days} 天)`, badgeClass: 'bg-emerald-100 text-emerald-700' };
         };
 
+        // 批次修改與刪除
+        const openEditBatchModal = (batch) => {
+          editBatchModal.value.item = JSON.parse(JSON.stringify(batch));
+          if (editBatchModal.value.item.ExpireDate) {
+            editBatchModal.value.item.ExpireDate = editBatchModal.value.item.ExpireDate.substring(0, 10);
+          }
+          editBatchModal.value.visible = true;
+        };
+
+        const saveEditBatch = async () => {
+          const target = wmsData.value.Batches.find(b => b.BatchId === editBatchModal.value.item.BatchId);
+          if (target) {
+            Object.assign(target, editBatchModal.value.item);
+            await saveData();
+            editBatchModal.value.visible = false;
+            alert('✅ 批次資料已成功更新並同步！');
+          }
+        };
+
+        const deleteBatch = async (batch) => {
+          if (confirm(`確定要刪除批次「${batch.BatchNumber}」嗎？（刪除後無法復原）`)) {
+            wmsData.value.Batches = wmsData.value.Batches.filter(b => b.BatchId !== batch.BatchId);
+            await saveData();
+            alert('已刪除該批次！');
+          }
+        };
+
+        // 出貨與撤銷
         const submitOutbound = async () => {
           if (!selectedBatchId.value) {
             alert('請在下方點選要出貨的批次！');
@@ -442,7 +544,6 @@
           let target = wmsData.value.Batches.find(b => b.BatchId === selectedBatchId.value);
           if (!target) return;
 
-          // 先到期防呆
           const earlier = wmsData.value.Batches.find(b => b.ProduceName === target.ProduceName && Number(b.StockQty) > 0 && new Date(b.ExpireDate) < new Date(target.ExpireDate));
           if (earlier) {
             if (confirm(`⚠️ 發現有更早到期的批次（${earlier.BatchNumber}），要改由此即期批次優先出貨嗎？`)) {
@@ -482,6 +583,19 @@
           alert(`✅ 成功出庫！出貨單號：${orderNo}`);
         };
 
+        const deleteOutbound = async (rec) => {
+          const addBack = confirm(`確定要撤銷出貨單「${rec.OrderNumber}」嗎？\n\n點選「確定」：將 ${rec.OutQty} ${rec.Unit} 加回庫存並刪除單據\n點選「取消」：放棄操作`);
+          if (addBack) {
+            const batch = wmsData.value.Batches.find(b => b.BatchNumber === rec.BatchNumber);
+            if (batch) {
+              batch.StockQty = Number(batch.StockQty) + Number(rec.OutQty);
+            }
+            wmsData.value.OutboundRecords = wmsData.value.OutboundRecords.filter(r => r.RecordId !== rec.RecordId);
+            await saveData();
+            alert('已成功撤銷出貨！');
+          }
+        };
+
         const openFeedbackModal = (rec) => {
           fbModal.value.item = rec;
           fbModal.value.visible = true;
@@ -505,7 +619,8 @@
           activeTab, wmsData, inForm, currentUnit, netWeight, onProduceChange, handlePhotoUpload,
           submitInbound, activeBatches, totalStockWeight, nearExpiryCount, expiredCount,
           getStatusBadge, selectedBatchId, outForm, submitOutbound, loadCloudData,
-          fbModal, openFeedbackModal, saveFeedbackModal
+          editBatchModal, openEditBatchModal, saveEditBatch, deleteBatch,
+          deleteOutbound, fbModal, openFeedbackModal, saveFeedbackModal
         };
       }
     }).mount('#app');
